@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Student Manager</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color-scheme: light;
+  }
+  body {
+    margin: 0;
+    background: #f4f6f8;
+    color: #1f2937;
+  }
+  header {
+    background: #1f2937;
+    color: #fff;
+    padding: 1.25rem 2rem;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.4rem;
+  }
+  main {
+    max-width: 960px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .card h2 {
+    margin-top: 0;
+    font-size: 1.1rem;
+  }
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4b5563;
+  }
+  input {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  button {
+    padding: 0.55rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  button.secondary {
+    background: #6b7280;
+  }
+  button.danger {
+    background: #dc2626;
+  }
+  button:hover {
+    opacity: 0.9;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.9rem;
+  }
+  th {
+    color: #6b7280;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .actions button {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+  }
+  #message {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+  }
+  #message.error {
+    color: #dc2626;
+  }
+  #message.success {
+    color: #16a34a;
+  }
+  .empty {
+    color: #6b7280;
+    font-size: 0.9rem;
+    padding: 1rem 0;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Student Manager</h1>
+</header>
+<main>
+  <section class="card">
+    <h2 id="form-title">Add Student</h2>
+    <form id="student-form">
+      <input type="hidden" id="student-id">
+      <div class="field">
+        <label for="name">Name</label>
+        <input type="text" id="name" required>
+      </div>
+      <div class="field">
+        <label for="age">Age</label>
+        <input type="number" id="age" min="1" required>
+      </div>
+      <div class="field">
+        <label for="studentClass">Class</label>
+        <input type="text" id="studentClass" required>
+      </div>
+      <button type="submit" id="submit-btn">Add Student</button>
+      <button type="button" class="secondary" id="cancel-btn" style="display:none;">Cancel</button>
+    </form>
+    <div id="message"></div>
+  </section>
+
+  <section class="card">
+    <h2>Students</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Age</th>
+          <th>Class</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="student-table-body"></tbody>
+    </table>
+    <div class="empty" id="empty-state" style="display:none;">No students yet. Add one above.</div>
+  </section>
+</main>
+
+<script>
+const API_URL = '/api/students';
+
+const form = document.getElementById('student-form');
+const idField = document.getElementById('student-id');
+const nameField = document.getElementById('name');
+const ageField = document.getElementById('age');
+const classField = document.getElementById('studentClass');
+const submitBtn = document.getElementById('submit-btn');
+const cancelBtn = document.getElementById('cancel-btn');
+const formTitle = document.getElementById('form-title');
+const tableBody = document.getElementById('student-table-body');
+const emptyState = document.getElementById('empty-state');
+const messageEl = document.getElementById('message');
+
+function showMessage(text, type) {
+  messageEl.textContent = text;
+  messageEl.className = type || '';
+  if (text) {
+    setTimeout(() => {
+      messageEl.textContent = '';
+      messageEl.className = '';
+    }, 4000);
+  }
+}
+
+async function fetchStudents() {
+  try {
+    const res = await fetch(API_URL);
+    if (!res.ok) throw new Error('Failed to load students');
+    const students = await res.json();
+    renderStudents(students);
+  } catch (err) {
+    showMessage(err.message, 'error');
+  }
+}
+
+function renderStudents(students) {
+  tableBody.innerHTML = '';
+  emptyState.style.display = students.length === 0 ? 'block' : 'none';
+
+  students.forEach(student => {
+    const tr = document.createElement('tr');
+
+    const idTd = document.createElement('td');
+    idTd.textContent = student.id;
+
+    const nameTd = document.createElement('td');
+    nameTd.textContent = student.name;
+
+    const ageTd = document.createElement('td');
+    ageTd.textContent = student.age;
+
+    const classTd = document.createElement('td');
+    classTd.textContent = student.studentClass;
+
+    const actionsTd = document.createElement('td');
+    actionsTd.className = 'actions';
+
+    const editBtn = document.createElement('button');
+    editBtn.textContent = 'Edit';
+    editBtn.className = 'secondary';
+    editBtn.addEventListener('click', () => startEdit(student));
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.className = 'danger';
+    deleteBtn.addEventListener('click', () => deleteStudent(student.id));
+
+    actionsTd.appendChild(editBtn);
+    actionsTd.appendChild(deleteBtn);
+
+    tr.appendChild(idTd);
+    tr.appendChild(nameTd);
+    tr.appendChild(ageTd);
+    tr.appendChild(classTd);
+    tr.appendChild(actionsTd);
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function startEdit(student) {
+  idField.value = student.id;
+  nameField.value = student.name;
+  ageField.value = student.age;
+  classField.value = student.studentClass;
+  formTitle.textContent = 'Edit Student';
+  submitBtn.textContent = 'Update Student';
+  cancelBtn.style.display = 'inline-block';
+}
+
+function resetForm() {
+  form.reset();
+  idField.value = '';
+  formTitle.textContent = 'Add Student';
+  submitBtn.textContent = 'Add Student';
+  cancelBtn.style.display = 'none';
+}
+
+cancelBtn.addEventListener('click', resetForm);
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const payload = {
+    name: nameField.value.trim(),
+    age: Number(ageField.value),
+    studentClass: classField.value.trim()
+  };
+
+  const id = idField.value;
+  const isEdit = Boolean(id);
+  const url = isEdit ? `${API_URL}/${id}` : API_URL;
+  const method = isEdit ? 'PUT' : 'POST';
+
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const problem = await res.json().catch(() => null);
+      throw new Error(problem?.detail || 'Request failed');
+    }
+
+    showMessage(isEdit ? 'Student updated' : 'Student added', 'success');
+    resetForm();
+    fetchStudents();
+  } catch (err) {
+    showMessage(err.message, 'error');
+  }
+});
+
+async function deleteStudent(id) {
+  if (!confirm('Delete this student?')) return;
+
+  try {
+    const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete student');
+    showMessage('Student deleted', 'success');
+    fetchStudents();
+  } catch (err) {
+    showMessage(err.message, 'error');
+  }
+}
+
+fetchStudents();
+</script>
+</body>
+</html>
